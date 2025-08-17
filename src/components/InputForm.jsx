@@ -31,7 +31,7 @@ const InputForm = ({
             type="text"
             id="shortId"
             onChange={handleInputChange}
-            placeholder="Example: tWHzjftvr"
+            placeholder="Example: c5f1aeee-d13b-41f6-98d6-75fd35c49236"
             className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             value={localShortId}
           />
