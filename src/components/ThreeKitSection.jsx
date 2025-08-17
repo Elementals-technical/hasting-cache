@@ -11,7 +11,7 @@ const ThreeKitSection = ({ assetId, onGetDataItem }) => {
           🎨 ThreeKit Player
         </h2>
       </div>
-      <PlayerThreeKit assetId={assetId} onGetDataItem={onGetDataItem} />
+  <PlayerThreeKit onGetDataItem={onGetDataItem} />
     </div>
   );
 };

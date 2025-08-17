@@ -1,7 +1,25 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { InputForm, ThreeKitSection } from "./components";
 import AttributesCacheSection from "./components/AttributesCache/AttributesCacheSection";
 import CombinationCounter from "./components/AttributesCache/CombinationCounter";
+import { useDispatch } from 'react-redux';
+import { setAssetId as setAssetIdInStore, setAllAttributes } from './store/store';
+
+// Helper to load attributes once and seed the store
+async function loadAttributesData() {
+  try {
+    const mod = await import("../JsonAttributeThreekit.js?raw");
+    return JSON.parse(mod.default);
+  } catch (e) {
+    try {
+      const resp = await fetch("/JsonAttributeThreekit.js");
+      const txt = await resp.text();
+      return JSON.parse(txt);
+    } catch (err) {
+      return [];
+    }
+  }
+}
 
 function App() {
   const [assetID, setAssetId] = useState(
@@ -13,7 +31,12 @@ function App() {
     console.log("App", dataPlayer);
   };
   const [selectedAttributes, setSelectedAttributes] = useState([]);
+  const dispatch = useDispatch();
 
+  useEffect(() => {
+    dispatch(setAssetIdInStore(assetID));
+  }, [assetID, dispatch]);
+ 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-4xl mx-auto px-4">

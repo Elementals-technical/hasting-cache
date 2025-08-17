@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from "react";
-import { useDispatch } from 'react-redux';
-import { setDisplayAttributes } from '../store/store';
+import React, { useEffect, useRef, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { setAllAttributes, setDisplayAttributes, setMetadata, setStageDisplayAttributes } from "../store/store";
 
 import s from "./PlayerThreeKit.module.scss";
 import load3kit from "../utils/load3kit";
+import { ThreekitCore } from "../Threekit/core/ThreekitCore";
 
 export const THREEKIT_PARAMS = {
   threekitApiBaseUrl:
@@ -17,50 +18,79 @@ export const THREEKIT_PARAMS = {
   orgId: import.meta.env.VITE_ORG_ID || "12a6bfdf-aa5f-48e7-97ff-172e9c5775d8",
 };
 
-export const PlayerThreeKit = ({ assetId, onGetDataItem }) => {
-  const playerEl = React.createRef();
-  const [isLoading, setIsLoading] = useState(true);
+export const PlayerThreeKit = ({ onGetDataItem }) => {
+  const playerEl = useRef(null);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
-  const [player, setPlayer] = useState(null);
+
   const dispatch = useDispatch();
+  const assetId = useSelector((s) => s.asset.assetId);
+  const didInitRef = useRef(false);
 
   const init3kit = async () => {
-    if (!playerEl.current) return false;
+    if (didInitRef.current) return; // guard against double init in StrictMode
+    if (!playerEl.current) {
+      // Ref ще не готовий — спробуємо знову після мікротаску
+      setTimeout(init3kit, 0);
+      return;
+    }
 
     if (window.threekitPlayer) {
       try {
         setIsLoading(true);
         setError("");
 
-        const api = await window.threekitPlayer({
-          authToken: THREEKIT_PARAMS["authToken"],
-          el: playerEl.current,
-          assetId: assetId,
+        window
+          .threekitPlayer({
+            authToken: THREEKIT_PARAMS["authToken"],
+            el: playerEl.current,
+            assetId: assetId,
+            // stageId: 'f9af640a-2f8e-4617-9484-84e723e97549',
+            initialConfiguration: {
+              ["BG_on/off"]: false,
+              ["hasLoadeAppConfig"]: true,
+            },
+            showConfigurator: false,
+            showShare: false,
+          })
+          .then(async (api) => {
+            window.player = api;
+            didInitRef.current = true;
+            const conf = await api.getConfigurator();
+            const listDisplayAttributes = await conf.getDisplayAttributes();
+            const fullConfiguration = conf.getFullConfiguration();
+            const metadata = conf.getMetadata();
+            const confStage = await player.getStageConfigurator();
+            const listStageDisplayAttributes = await confStage.getDisplayAttributes();
 
-          // showAR: true,
-        });
+            if (Array.isArray(listDisplayAttributes)) {
+              const result = ThreekitCore.filterConfigByPreview(
+                fullConfiguration,
+                listDisplayAttributes
+              );
 
-        window.player = api;
-        setPlayer(api);
+              debugger;
+              await dispatch(setDisplayAttributes(result));
+              await dispatch(setAllAttributes(result));
+              await dispatch(setMetadata(metadata));
+              if (Array.isArray(listStageDisplayAttributes)) {
+                await dispatch(setStageDisplayAttributes(listStageDisplayAttributes));
+              }
+            }
 
-        await api.when("preloaded");
-        await api.when("loaded");
-
-        setIsLoading(false);
-
-        window.player.tools.removeTool("pan");
-        window.player.tools.removeTool("orbit");
-
-        const conf = await player.getConfigurator();
-        const listDisplayAttributes = conf.getDisplayAttributes();
-        if (Array.isArray(listDisplayAttributes)) {
-          dispatch(setDisplayAttributes(listDisplayAttributes));
-        }
-
-        if (onGetDataItem) {
-          onGetDataItem(api);
-        }
+            if (onGetDataItem) {
+              onGetDataItem(api);
+            }
+            setIsLoading(false);
+          })
+          .catch((err) => {
+            debugger;
+            console.error("Error initializing ThreeKit Player:", err);
+            setError(`Failed to load player: ${err.message}`);
+            setIsLoading(false);
+          });
       } catch (err) {
+        debugger;
         console.error("Error initializing ThreeKit Player:", err);
         setError(`Failed to load player: ${err.message}`);
         setIsLoading(false);
@@ -73,17 +103,6 @@ export const PlayerThreeKit = ({ assetId, onGetDataItem }) => {
       init3kit();
     });
   }, [assetId]); // Перезапускаємо коли змінюється assetId
-
-  if (!assetId) {
-    return (
-      <div className={s.player_wrapper}>
-        <div className="text-center text-gray-500">
-          <div className="text-6xl mb-4">🎨</div>
-          <p>Enter assetId to load ThreeKit Player</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className={s.player_wrapper}>
