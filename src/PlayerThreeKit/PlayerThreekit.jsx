@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { setAllAttributes, setDisplayAttributes, setMetadata, setStageDisplayAttributes } from "../store/store";
+import { setAllAttributes, setDisplayAttributes, setMetadata, setStageDisplayAttributes, clearAllAttributes, clearDisplayAttributes, clearSelectedForCache, clearMetadata, clearStageDisplayAttributes } from "../store/store";
 
 import s from "./PlayerThreeKit.module.scss";
 import load3kit from "../utils/load3kit";
@@ -10,7 +10,7 @@ export const THREEKIT_PARAMS = {
   threekitApiBaseUrl:
     import.meta.env.VITE_THREEKIT_URL || "https://preview.threekit.com/api",
   authToken:
-    import.meta.env.VITE_AUTH_TOKEN || "eaef7621-6bf7-43d3-b8a3-cfe5afd9bc26",
+    import.meta.env.VITE_AUTH_TOKEN || "deb5edef-84a7-4b6c-89d6-dec98e8a8f5b",
   assetId:
     window?.productData?.assetId ||
     import.meta.env.VITE_ASSET_ID ||
@@ -28,7 +28,7 @@ export const PlayerThreeKit = ({ onGetDataItem }) => {
   const didInitRef = useRef(false);
 
   const init3kit = async () => {
-    if (didInitRef.current) return; // guard against double init in StrictMode
+  if (didInitRef.current) return; // guard against double init in StrictMode
     if (!playerEl.current) {
       // Ref ще не готовий — спробуємо знову після мікротаску
       setTimeout(init3kit, 0);
@@ -99,6 +99,25 @@ export const PlayerThreeKit = ({ onGetDataItem }) => {
   };
 
   useEffect(() => {
+    // Clear previous data in store on asset change
+    dispatch(clearDisplayAttributes());
+    dispatch(clearAllAttributes());
+    dispatch(clearSelectedForCache());
+    dispatch(clearMetadata());
+    dispatch(clearStageDisplayAttributes());
+
+    // Reset player instance if already initialized
+    if (didInitRef.current) {
+      didInitRef.current = false;
+      if (playerEl.current) {
+        try { playerEl.current.innerHTML = ""; } catch {}
+      }
+      if (window.player && typeof window.player.unload === 'function') {
+        try { window.player.unload(); } catch {}
+      }
+      window.player = undefined;
+    }
+
     load3kit(null, () => {
       init3kit();
     });
